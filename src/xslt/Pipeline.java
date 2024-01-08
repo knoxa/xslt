@@ -215,7 +215,14 @@ public class Pipeline {
 		
 		Object firstStep = ( pipeline.size() > 0 ) ? pipeline.elementAt(0) : null;
 		
-		result = new SAXResult((ContentHandler) firstStep);
-		transformer.transform(source, result);
+		if ( firstStep != null ) {
+			
+			result = new SAXResult((ContentHandler) firstStep);
+			transformer.transform(source, result);
+		}
+		else {
+			System.err.println("The pipeline is empty.");
+			// Could just serialize input to output here ...
+		}
 	}
 }
