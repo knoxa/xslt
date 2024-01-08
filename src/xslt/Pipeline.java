@@ -28,9 +28,9 @@ public class Pipeline {
 	private Vector<Object> list;
 	private TransformerFactory factory;
 	private SAXTransformerFactory saxTransFact;
-	private ContentHandler outputContentHandler = null;
 	private String outputMethod = "xml";
 	private String pipelineName;
+	private Result result;
 	
 	public Pipeline() {
 
@@ -49,9 +49,10 @@ public class Pipeline {
 	public void addStep(Templates template) {
 		
 		Properties p = template.getOutputProperties();
-		outputMethod = p.getProperty("method");
+		outputMethod = p.getProperty(OutputKeys.METHOD);
 		
-		list.add(template);	
+		list.add(template);
+		pipeline = null;
 	}
 
 	
@@ -82,6 +83,7 @@ public class Pipeline {
 	public void addStep(XMLFilter filter) {
 		
 		list.add(filter);
+		pipeline = null;
 	}
 	
 	
@@ -108,29 +110,26 @@ public class Pipeline {
 	
 	public void setOutput(ContentHandler output) throws TransformerConfigurationException  {
 		
-		reset();
-		
-		outputContentHandler = output;
-//		setOutput();
+		result = new SAXResult(output);
 	}
 	
 	
 	private void setOutput() throws TransformerConfigurationException  {
 		
-		if (outputContentHandler == null)  return;
-		
 		if ( pipeline.size() > 0 ) {
 			
-			Object previousStep = pipeline.lastElement();
+			Object lastStep = pipeline.lastElement();
 			
-			if ( previousStep instanceof TransformerHandler ) {
-			
-				SAXResult result = new SAXResult(outputContentHandler);
-				((TransformerHandler) previousStep).setResult(result);
-			}	
-			else if ( previousStep instanceof XMLFilter ) {
+			if ( lastStep instanceof TransformerHandler ) {
 				
-				((XMLFilter) previousStep).setContentHandler(outputContentHandler);				
+				((TransformerHandler) lastStep).setResult(result);
+			}
+			else if ( lastStep instanceof XMLFilter ) {
+
+				// serialize the XMLFilter output
+				TransformerHandler serializer = saxTransFact.newTransformerHandler();			
+				serializer.setResult(result);								
+				((XMLFilter) lastStep).setContentHandler(serializer);
 			}
 		}
 	}
@@ -138,92 +137,27 @@ public class Pipeline {
 
 	public void setOutput(OutputStream outputStream) throws TransformerConfigurationException  {
 		
-		reset();
-		
-		TransformerHandler identity = saxTransFact.newTransformerHandler();			
-
-		Result output = new StreamResult(outputStream);
-		identity.setResult(output);					
-		outputContentHandler = identity;
-		identity.getTransformer().setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-
-		if ( pipeline.size() > 0 ) {
-			
-			// by default, output method is "xml", set it to be the same as for the previous step
-			Object previousStep = pipeline.lastElement();
-			
-			if ( previousStep instanceof TransformerHandler ) {
-								
-				TransformerHandler th = ((TransformerHandler) previousStep);
-				Transformer t = th.getTransformer();
-				identity.getTransformer().setOutputProperty(OutputKeys.METHOD, t.getOutputProperty(OutputKeys.METHOD));
-				if (t.getOutputProperty(OutputKeys.DOCTYPE_SYSTEM) != null)  identity.getTransformer().setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, t.getOutputProperty(OutputKeys.DOCTYPE_SYSTEM));
-				if (t.getOutputProperty(OutputKeys.DOCTYPE_PUBLIC) != null)  identity.getTransformer().setOutputProperty(OutputKeys.DOCTYPE_PUBLIC, t.getOutputProperty(OutputKeys.DOCTYPE_PUBLIC));
-				//identity.getTransformer().setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, t.getOutputProperty(OutputKeys.OMIT_XML_DECLARATION));
-			}
-		
-			setOutput();			
-		}
+		result = new StreamResult(outputStream);
 	}
 	
 
 	public void setOutput(DOMResult outputDOM) throws TransformerConfigurationException  {
 		
-		reset();
-		
-		TransformerHandler identity = saxTransFact.newTransformerHandler();		
-
-		identity.setResult(outputDOM);					
-		outputContentHandler = identity;
-		identity.getTransformer().setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-
-		if ( pipeline.size() > 0 ) {
-			
-			// by default, output method is "xml", set it to be the same as for the previous step
-			Object previousStep = pipeline.lastElement();
-			
-			if ( previousStep instanceof TransformerHandler ) {
-								
-				TransformerHandler th = ((TransformerHandler) previousStep);
-				Transformer t = th.getTransformer();
-				identity.getTransformer().setOutputProperty(OutputKeys.METHOD, t.getOutputProperty(OutputKeys.METHOD));
-				if (t.getOutputProperty(OutputKeys.DOCTYPE_SYSTEM) != null)  identity.getTransformer().setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, t.getOutputProperty(OutputKeys.DOCTYPE_SYSTEM));
-				if (t.getOutputProperty(OutputKeys.DOCTYPE_PUBLIC) != null)  identity.getTransformer().setOutputProperty(OutputKeys.DOCTYPE_PUBLIC, t.getOutputProperty(OutputKeys.DOCTYPE_PUBLIC));
-				//identity.getTransformer().setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, t.getOutputProperty(OutputKeys.OMIT_XML_DECLARATION));
-			}
-		
-			setOutput();			
-		}
+		result = outputDOM;
 	}
 	
 	
 	public ContentHandler getContentHandler() throws TransformerConfigurationException {
 		
-		reset();
+		// The pipeline ContentHandler is the first link in the chain. 
 		
-		if ( pipeline.size() == 0 ) {
-			
-			// The pipeline is empty - just add a TransformerHandler that will give an identity transform
-			System.out.println("empty...");
-			
-			TransformerHandler identity = saxTransFact.newTransformerHandler();
-
-			if ( outputContentHandler != null ) identity.setResult(new SAXResult(outputContentHandler));
-			else                                identity.setResult(new StreamResult(System.out));
-			
-			pipeline.add(identity);
-		}
-		
+		if (pipeline == null )  chain();
 		Object first = pipeline.firstElement();
-
-		if ( first instanceof TransformerHandler ) {
+		
+		if ( first instanceof TransformerHandler || first instanceof XMLFilter ) {
 
 			return (ContentHandler) first;			
 		}	
-		else if ( first instanceof XMLFilter ) {
-			
-			return (ContentHandler) first;
-		}
 		else return null;
 	}
 	
@@ -246,16 +180,6 @@ public class Pipeline {
 		}
 		
 		setOutput();
-	}
-	
-	public void init() throws TransformerConfigurationException {
-		
-		chain();
-	}
-	
-	private void reset() throws TransformerConfigurationException {
-		
-		chain();
 	}
 	
 	public String getOutputMethod() {
@@ -282,46 +206,16 @@ public class Pipeline {
 	}
 
 	
-	public void transform(Source source) {
+	public void transform(Source source) throws TransformerException {
 		
-		Transformer transformer = null;
+		if (pipeline == null )  chain();
+
+		Transformer transformer = this.getTransformerFactory().newTransformer();
+		Result result;
 		
 		Object firstStep = ( pipeline.size() > 0 ) ? pipeline.elementAt(0) : null;
 		
-		if ( firstStep != null && firstStep instanceof TransformerHandler ) {
-			 
-			TransformerHandler handler = (TransformerHandler) firstStep;
-			transformer = handler.getTransformer();
-		}
-		else {
-			
-			try {
-				transformer = this.getTransformerFactory().newTransformer();
-			}
-			catch (TransformerConfigurationException e) {
-				e.printStackTrace();
-			}
-		}
-		
-		Result result;
-		
-		if ( pipeline.size() > 1 ) {
-			
-			Object secondStep = pipeline.elementAt(1);
-			result = new SAXResult((ContentHandler) secondStep);
-			
-		}
-		else {
-			
-			result = new SAXResult(outputContentHandler);
-		}
-
-		try {
-			transformer.transform(source, result);
-		}
-		catch (TransformerException e) {
-
-			e.printStackTrace();
-		}
+		result = new SAXResult((ContentHandler) firstStep);
+		transformer.transform(source, result);
 	}
 }
