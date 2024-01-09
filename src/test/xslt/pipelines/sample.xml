@@ -1,0 +1,5 @@
+<pipeline>
+	<step url="xsl/increment.xsl"/>
+	<step filter="org.xml.sax.helpers.XMLFilterImpl"/>
+	<step url="xsl/increment.xsl"/>
+</pipeline>
