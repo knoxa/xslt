@@ -221,7 +221,7 @@ public class Pipeline {
 			transformer.transform(source, result);
 		}
 		else {
-			System.err.println("The pipeline is empty.");
+			System.err.printf("The pipeline [%s] is empty.\n", getName());
 			// Could just serialize input to output here ...
 		}
 	}
