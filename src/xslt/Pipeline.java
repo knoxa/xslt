@@ -211,14 +211,14 @@ public class Pipeline {
 		if (pipeline == null )  chain();
 
 		Transformer transformer = this.getTransformerFactory().newTransformer();
-		Result result;
+		Result pipelineInput;
 		
 		Object firstStep = ( pipeline.size() > 0 ) ? pipeline.elementAt(0) : null;
 		
 		if ( firstStep != null ) {
 			
-			result = new SAXResult((ContentHandler) firstStep);
-			transformer.transform(source, result);
+			pipelineInput = new SAXResult((ContentHandler) firstStep);
+			transformer.transform(source, pipelineInput);
 		}
 		else {
 			System.err.printf("The pipeline [%s] is empty.\n", getName());
