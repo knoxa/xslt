@@ -103,6 +103,29 @@ public class PipelineTest {
 	}
 
 	@Test
+	public void testFilter() throws TransformerException, IOException {
+		
+		// A single "pass through" XMLFilter step - the output is the same as the input
+
+		File sample = temp.newFile("sample.xml");
+		File added = temp.newFile("sample-added.xml");
+		File output = temp.newFile("output.xml");
+		FileUtils.copyInputStreamToFile(this.getClass().getResourceAsStream("data/sample.xml"), sample);
+		FileUtils.copyInputStreamToFile(this.getClass().getResourceAsStream("data/sample-added.xml"), added);
+
+		Pipeline p = new Pipeline();
+		p.addStep(new TestFilter());
+		p.setOutput(new FileOutputStream(output));
+						
+		Source s = new StreamSource(new FileInputStream(sample));
+		p.transform(s);	
+		
+		String expect = FileUtils.readFileToString(added, "UTF-8");
+		String result = FileUtils.readFileToString(output, "UTF-8");
+		assertEquals(expect, result);
+	}
+
+	@Test
 	public void pipeline() throws TransformerException, IOException {
 		
 		// A 2-step pipeline: At each step 'increment.xsl' increments the @count attribute in the sample
