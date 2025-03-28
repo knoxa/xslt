@@ -21,6 +21,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.xml.sax.ContentHandler;
 import org.xml.sax.XMLFilter;
+import org.xml.sax.helpers.XMLFilterImpl;
 
 public class Pipeline {
 
@@ -149,16 +150,29 @@ public class Pipeline {
 	
 	public ContentHandler getContentHandler() throws TransformerConfigurationException {
 		
-		// The pipeline ContentHandler is the first link in the chain. 
-		
 		if (pipeline == null )  chain();
-		Object first = pipeline.firstElement();
 		
-		if ( first instanceof TransformerHandler || first instanceof XMLFilter ) {
+		if ( pipeline.isEmpty() ) {
+			
+			// The pipeline is empty, so probably just being used as an XML serializer.
+			// Create a null transform first step, then vall this method again. It should work as
+			// expected proved the output of the pipeline has been set (test for this and throw exception?)
+			
+			addStep(new XMLFilterImpl());
+			return getContentHandler();
+		}
+		else {
+			
+			// The pipeline ContentHandler is the first link in the chain. 
+			
+			Object first = pipeline.firstElement();
+			
+			if ( first instanceof TransformerHandler || first instanceof XMLFilter ) {
 
-			return (ContentHandler) first;			
-		}	
-		else return null;
+				return (ContentHandler) first;			
+			}	
+			else return null;
+		}
 	}
 	
 	

@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 
 import javax.xml.transform.Source;
+import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.stream.StreamSource;
 
@@ -38,6 +39,25 @@ public class PipelineTest {
 		Pipeline p = new Pipeline();
 		p.setName("Testing");
 		assertEquals(p.getName(), "Testing");
+	}
+	
+	@Test
+	public void contentHandler() throws TransformerConfigurationException {
+		
+		// A pipeline can be named
+		
+		Pipeline p = new Pipeline();
+		p.setOutput(System.out);
+		ContentHandler ch = null;
+
+		try {
+			ch = p.getContentHandler();
+		}
+		catch (TransformerConfigurationException e) {
+			e.printStackTrace();
+		}
+		
+		assertNotNull(ch);
 	}
 
 	@Test
