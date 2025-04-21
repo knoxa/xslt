@@ -217,4 +217,9 @@ public class PipelineBuilder implements ContentHandler {
 
 		this.filterFactory = factory;
 	}
+	
+	public static Pipeline getEmptyPipeline() {
+		
+		return new Pipeline();
+	}
 }
