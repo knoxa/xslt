@@ -222,7 +222,10 @@ public class Pipeline {
 	
 	public void transform(Source source) throws TransformerException {
 		
-		if (pipeline == null )  chain();
+		// link the steps of the pipeline together whenever this method is called. This 
+		// allows the same pipeline configuration to be used with different outputs.
+		
+		chain();
 
 		Transformer transformer = this.getTransformerFactory().newTransformer();
 		Result pipelineInput;
